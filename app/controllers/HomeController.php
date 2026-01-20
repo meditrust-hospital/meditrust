@@ -1,6 +1,7 @@
 <?php
-class HomeController extends Controller {
-  public function index(){ $this->requireAuth(); 
-    $this->view('home/home', []);
-  }
+
+class HomeController {
+    public function index() {
+        require_once 'app/views/home.php';
+    }
 }
