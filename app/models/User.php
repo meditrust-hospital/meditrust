@@ -1,77 +1,67 @@
 <?php
+require_once __DIR__ . '/../../config/database.php';
 
 class User {
     private $conn;
-    private $table_name = "users";
+    private $table = 'users';
 
-    public $id;
-    public $name;
-    public $email;
-    public $password;
-    public $role;
-
-    public function __construct($db){
-        $this->conn = $db;
+    public function __construct() {
+        $database = new Database();
+        $this->conn = $database->getConnection();
     }
 
-    function create(){
-        $query = "INSERT INTO " . $this->table_name . "
-                SET
-                    name=:name, email=:email, password=:password, role=:role";
-
+    public function register($data) {
+        $query = "INSERT INTO " . $this->table . " (username, email, password_hash, role) 
+                  VALUES (:username, :email, :password, :role)";
         $stmt = $this->conn->prepare($query);
-
-        $this->name=htmlspecialchars(strip_tags($this->name));
-        $this->email=htmlspecialchars(strip_tags($this->email));
-        $this->password=htmlspecialchars(strip_tags($this->password));
-        $this->role=htmlspecialchars(strip_tags($this->role));
-
-        $stmt->bindParam(":name", $this->name);
-        $stmt->bindParam(":email", $this->email);
-        
-        $password_hash = password_hash($this->password, PASSWORD_BCRYPT);
-        $stmt->bindParam(":password", $password_hash);
-        
-        $stmt->bindParam(":role", $this->role);
-
-        if($stmt->execute()){
-            return true;
-        }
-
-        return false;
+        $password_hash = password_hash($data['password'], PASSWORD_BCRYPT);
+        $stmt->bindParam(':username', $data['username']);
+        $stmt->bindParam(':email', $data['email']);
+        $stmt->bindParam(':password', $password_hash);
+        $stmt->bindParam(':role', $data['role']);
+        return $stmt->execute();
     }
 
-    function login(){
-        $query = "SELECT id, name, email, password, role FROM " . $this->table_name . " WHERE email = ? LIMIT 0,1";
-
-        $stmt = $this->conn->prepare( $query );
-        $stmt->bindParam(1, $this->email);
+    public function login($username, $password) {
+        $query = "SELECT * FROM " . $this->table . " WHERE username = :username";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':username', $username);
         $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if($row && password_verify($this->password, $row['password'])){
-            $this->id = $row['id'];
-            $this->name = $row['name'];
-            $this->role = $row['role'];
-            return true;
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($user && password_verify($password, $user['password_hash'])) {
+            return $user;
         }
-
         return false;
     }
 
-    function getAll(){
-        $query = "SELECT id, name, email, role FROM " . $this->table_name . " ORDER BY name ASC";
-        $stmt = $this->conn->prepare( $query );
+    public function getAll() {
+        $query = "SELECT id, username, email, role, created_at FROM " . $this->table;
+        $stmt = $this->conn->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    function getByRole($role){
-        $query = "SELECT id, name, email, role FROM " . $this->table_name . " WHERE role = ? ORDER BY name ASC";
-        $stmt = $this->conn->prepare( $query );
-        $stmt->bindParam(1, $role);
+    public function getById($id) {
+        $query = "SELECT id, username, email, role, created_at FROM " . $this->table . " WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function updateRole($id, $role) {
+        $query = "UPDATE " . $this->table . " SET role = :role WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':role', $role);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+
+    public function delete($id) {
+        $query = "DELETE FROM " . $this->table . " WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
     }
 }
 ?>
